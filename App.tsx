@@ -1,4 +1,3 @@
-
 import React, { useState, useMemo } from 'react';
 import { Industry, Configuration, AssessmentData, SasbTopic, SavedAssessment, AssessmentStatus, ScoreLevel } from './types';
 import { DEFAULT_CONFIG, MOCK_TOPICS } from './constants';
@@ -10,7 +9,6 @@ import { AssessmentList } from './components/AssessmentList';
 import { GeneralSettings } from './components/GeneralSettings';
 import { Settings, ClipboardList, BarChart3, ChevronRight, Lock, Users, Check, Loader2, ArrowLeft } from 'lucide-react';
 
-// Mock some initial data for the list view
 const MOCK_SAVED_ASSESSMENTS: SavedAssessment[] = [
   {
     id: 'mock-1',
@@ -19,7 +17,7 @@ const MOCK_SAVED_ASSESSMENTS: SavedAssessment[] = [
     reportingYear: '2023',
     version: 1,
     status: AssessmentStatus.FINALIZED,
-    lastModified: Date.now() - 86400000 * 5, // 5 days ago
+    lastModified: Date.now() - 86400000 * 5,
     data: {
       primaryIndustry: { code: 'TC-SI', name: 'Software & IT Services', sector: 'Technology & Communications' },
       secondaryIndustries: [],
@@ -30,35 +28,20 @@ const MOCK_SAVED_ASSESSMENTS: SavedAssessment[] = [
 ];
 
 const App: React.FC = () => {
-  // Navigation State
   const [view, setView] = useState<'LIST' | 'WIZARD'>('LIST');
-
-  // List Data State
   const [savedAssessments, setSavedAssessments] = useState<SavedAssessment[]>(MOCK_SAVED_ASSESSMENTS);
-
-  // Wizard State
   const [currentAssessmentId, setCurrentAssessmentId] = useState<string | null>(null);
   const [step, setStep] = useState(1);
-  
-  // Step 1: General Info & Industry
   const [assessmentName, setAssessmentName] = useState('');
   const [timelineStart, setTimelineStart] = useState('');
   const [timelineEnd, setTimelineEnd] = useState('');
   const [primaryIndustry, setPrimaryIndustry] = useState<Industry | null>(null);
   const [secondaryIndustries, setSecondaryIndustries] = useState<Industry[]>([]);
-  
-  // Global Config
   const [config, setConfig] = useState<Configuration>(DEFAULT_CONFIG);
-  
-  // Step 2: Assessment Data
   const [assessments, setAssessments] = useState<Record<string, AssessmentData>>({});
-  
-  // Wizard Workflow States
   const [isFinalized, setIsFinalized] = useState(false);
   const [showLockConfirm, setShowLockConfirm] = useState(false);
   const [surveyStatus, setSurveyStatus] = useState<'idle' | 'sending' | 'sent'>('idle');
-
-  // --- Logic for Wizard ---
 
   const activeTopics = useMemo(() => {
     if (!primaryIndustry) return [];
@@ -74,7 +57,14 @@ const App: React.FC = () => {
     }
   };
 
-  // Fixed the ScoreLevel string literals to use enum values for better type consistency
+  const generateId = () => {
+    try {
+      return crypto.randomUUID();
+    } catch {
+      return Math.random().toString(36).substring(2, 15);
+    }
+  };
+
   const handleUpdateAssessment = (topicId: string, updates: Partial<AssessmentData>) => {
     setAssessments(prev => {
        const existing = prev[topicId] || { 
@@ -91,8 +81,6 @@ const App: React.FC = () => {
        };
     });
   };
-
-  // --- Logic for List & Persistence ---
 
   const handleCreateNew = () => {
     setCurrentAssessmentId(null);
@@ -118,8 +106,6 @@ const App: React.FC = () => {
     setConfig(saved.data.config);
     setAssessments(saved.data.assessments);
     setIsFinalized(saved.status === AssessmentStatus.FINALIZED);
-    
-    // Jump to dashboard if finalized, otherwise start at step 1 or appropriate step
     setStep(saved.status === AssessmentStatus.FINALIZED ? 3 : 1);
     setView('WIZARD');
   };
@@ -142,7 +128,7 @@ const App: React.FC = () => {
   const handleSaveAssessment = (year: string) => {
     const timestamp = Date.now();
     const isNew = !currentAssessmentId;
-    const idToUse = isNew ? crypto.randomUUID() : currentAssessmentId!;
+    const idToUse = isNew ? generateId() : currentAssessmentId!;
     
     const assessmentToSave: SavedAssessment = {
       id: idToUse,
@@ -166,18 +152,14 @@ const App: React.FC = () => {
     });
 
     setCurrentAssessmentId(idToUse);
-    
-    if (!isFinalized) {
-       setView('LIST');
-    }
+    if (!isFinalized) setView('LIST');
   };
 
   const handleFinalize = (year: string) => {
     setIsFinalized(true);
     const timestamp = Date.now();
-    const idToUse = currentAssessmentId || crypto.randomUUID();
+    const idToUse = currentAssessmentId || generateId();
     
-    // Create a complete record representing exactly what is currently on screen
     const finalizedRecord: SavedAssessment = {
       id: idToUse,
       assessmentName: assessmentName || 'Untitled Assessment',
@@ -196,9 +178,7 @@ const App: React.FC = () => {
 
     setSavedAssessments(prev => {
       const exists = prev.some(a => a.id === idToUse);
-      if (exists) {
-        return prev.map(a => a.id === idToUse ? finalizedRecord : a);
-      }
+      if (exists) return prev.map(a => a.id === idToUse ? finalizedRecord : a);
       return [finalizedRecord, ...prev];
     });
 
@@ -214,18 +194,14 @@ const App: React.FC = () => {
   };
   
   const handleListInitiateSurvey = (id: string) => {
-     alert(`Stakeholder Survey process initiated for assessment ID: ${id}. Emails will be sent to the configured stakeholder group.`);
+     alert(`Stakeholder Survey process initiated for assessment ID: ${id}`);
   };
 
   const canProceed = () => {
     if (step === 1) {
-       // Validate Name, Timeline, and Industry
-       const basicInfo = assessmentName.length > 0 && timelineStart.length > 0 && timelineEnd.length > 0;
-       return basicInfo && !!primaryIndustry;
+       return assessmentName.length > 0 && timelineStart.length > 0 && timelineEnd.length > 0 && !!primaryIndustry;
     }
-    if (step === 2) return true;
-    if (step === 3) return true;
-    return false;
+    return true;
   };
 
   const steps = [
@@ -233,8 +209,6 @@ const App: React.FC = () => {
     { id: 2, title: 'Assessment', icon: ClipboardList },
     { id: 3, title: 'Report', icon: BarChart3 },
   ];
-
-  // --- RENDER ---
 
   if (view === 'LIST') {
     return (
@@ -245,7 +219,6 @@ const App: React.FC = () => {
               <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">M</div>
               <h1 className="text-xl font-bold text-slate-900 tracking-tight">Materiality<span className="text-indigo-600">Architect</span></h1>
             </div>
-            <div className="text-xs text-slate-400 font-mono">IFRS S1 / SASB Standards</div>
           </div>
         </header>
         <AssessmentList 
@@ -259,10 +232,8 @@ const App: React.FC = () => {
     );
   }
 
-  // WIZARD VIEW
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      {/* Header */}
       <header className="bg-white border-b border-slate-200 sticky top-0 z-50">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -272,18 +243,9 @@ const App: React.FC = () => {
             <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold">M</div>
             <h1 className="text-xl font-bold text-slate-900 tracking-tight">Materiality<span className="text-indigo-600">Architect</span></h1>
           </div>
-          <div className="flex items-center gap-4">
-             {currentAssessmentId && (
-               <span className="text-xs font-mono bg-slate-100 text-slate-500 px-2 py-1 rounded">
-                  ID: {currentAssessmentId.slice(0, 8)}...
-               </span>
-             )}
-             <div className="text-xs text-slate-400 font-mono hidden sm:block">IFRS S1 / SASB Standards</div>
-          </div>
         </div>
       </header>
 
-      {/* Progress Stepper */}
       <div className="bg-white border-b border-slate-200 shadow-sm">
         <div className="max-w-3xl mx-auto py-4">
           <div className="flex items-center justify-between relative">
@@ -300,7 +262,6 @@ const App: React.FC = () => {
                      className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300
                        ${isActive ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-200 scale-110' : 
                          isCompleted ? 'bg-emerald-500 text-white' : 'bg-slate-100 text-slate-400'}
-                       ${isFinalized && !isActive ? 'opacity-50 cursor-not-allowed' : ''}
                        `}
                    >
                      <Icon className="w-5 h-5" />
@@ -313,9 +274,7 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <main className="flex-1 max-w-5xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8">
-        
         {step === 1 && (
           <div className="space-y-12">
             <section>
@@ -324,23 +283,13 @@ const App: React.FC = () => {
                     <h2 className="text-2xl font-bold text-slate-900">Entity & Industry Scope</h2>
                     <p className="text-slate-500 mt-1">Define the reporting boundaries for your assessment.</p>
                  </div>
-                 <div className="hidden sm:block px-3 py-1 bg-indigo-50 text-indigo-700 text-xs font-bold uppercase tracking-wider rounded-full">
-                   Step 1 of 3
-                 </div>
               </div>
-
-              {/* General Information (Name & Timeline) */}
               <GeneralSettings 
-                name={assessmentName}
-                setName={setAssessmentName}
-                startDate={timelineStart}
-                setStartDate={setTimelineStart}
-                endDate={timelineEnd}
-                setEndDate={setTimelineEnd}
+                name={assessmentName} setName={setAssessmentName}
+                startDate={timelineStart} setStartDate={setTimelineStart}
+                endDate={timelineEnd} setEndDate={setTimelineEnd}
               />
-              
               <div className="h-6"></div>
-
               <IndustrySelector 
                 primaryIndustry={primaryIndustry}
                 secondaryIndustries={secondaryIndustries}
@@ -348,140 +297,48 @@ const App: React.FC = () => {
                 onToggleSecondary={handleToggleSecondary}
               />
             </section>
-
-            <div className="relative">
-               <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                 <div className="w-full border-t border-slate-200"></div>
-               </div>
-               <div className="relative flex justify-center">
-                 <span className="bg-slate-50 px-4 text-sm text-slate-400 font-medium">Configuration Parameters</span>
-               </div>
-            </div>
-
             <section>
-               <div className="mb-6">
-                  <h2 className="text-2xl font-bold text-slate-900">Materiality Thresholds</h2>
-                  <p className="text-slate-500 mt-1">Calibrate the financial magnitude, likelihood, and time horizons.</p>
-               </div>
-               <ConfigurationBuilder 
-                  config={config} 
-                  setConfig={setConfig} 
-               />
+               <ConfigurationBuilder config={config} setConfig={setConfig} />
             </section>
           </div>
         )}
-
         {step === 2 && (
           <AssessmentEngine 
-            topics={activeTopics}
-            assessments={assessments}
-            config={config}
-            onUpdateAssessment={handleUpdateAssessment}
+            topics={activeTopics} assessments={assessments}
+            config={config} onUpdateAssessment={handleUpdateAssessment}
           />
         )}
-
         {step === 3 && (
           <Dashboard 
-             assessments={assessments}
-             topics={activeTopics}
-             isReadOnly={isFinalized}
-             onSave={handleSaveAssessment}
+             assessments={assessments} topics={activeTopics}
+             isReadOnly={isFinalized} onSave={handleSaveAssessment}
              initialYear={timelineEnd ? timelineEnd.split('-')[0] : undefined}
           />
         )}
-
       </main>
 
-      {/* Sticky Footer Actions */}
       <div className="bg-white border-t border-slate-200 p-4 sticky bottom-0 z-50">
         <div className="max-w-5xl mx-auto flex justify-between items-center">
-          <button 
-            onClick={() => setView('LIST')}
-            className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1"
-          >
+          <button onClick={() => setView('LIST')} className="px-4 py-2 text-slate-500 hover:text-slate-700 font-medium flex items-center gap-1">
              <ArrowLeft className="w-4 h-4" /> Cancel & Exit
           </button>
-          
           <div className="flex items-center gap-4">
              {step > 1 && (
-               <button 
-                 onClick={() => setStep(prev => Math.max(1, prev - 1))}
-                 disabled={isFinalized}
-                 className="px-6 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 font-medium transition-colors"
-               >
+               <button onClick={() => setStep(prev => Math.max(1, prev - 1))} disabled={isFinalized} className="px-6 py-2.5 rounded-lg text-slate-600 hover:bg-slate-50 disabled:opacity-50 font-medium">
                  Back
                </button>
              )}
-
-             {step === 2 && (
-               <div className="text-sm text-slate-500 hidden sm:block">
-                  {Object.keys(assessments).length} / {activeTopics.length} Topics Assessed
-               </div>
-             )}
-             
              {step < 3 ? (
-               <button 
-                 onClick={() => setStep(prev => prev + 1)}
-                 disabled={!canProceed()}
-                 className="px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 disabled:cursor-not-allowed font-medium transition-colors flex items-center gap-2"
-               >
+               <button onClick={() => setStep(prev => prev + 1)} disabled={!canProceed()} className="px-6 py-2.5 bg-slate-900 text-white rounded-lg hover:bg-slate-800 disabled:opacity-50 font-medium flex items-center gap-2">
                  Next Step <ChevronRight className="w-4 h-4" />
                </button>
              ) : isFinalized ? (
-                <button 
-                  onClick={handleInitiateSurvey}
-                  disabled={surveyStatus !== 'idle'}
-                  className={`px-6 py-2.5 rounded-lg text-white font-medium shadow-sm transition-all flex items-center gap-2 min-w-[200px] justify-center
-                    ${surveyStatus === 'sent' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-indigo-600 hover:bg-indigo-700'}
-                    ${surveyStatus === 'sending' ? 'opacity-75 cursor-wait' : ''}
-                  `}
-                >
-                  {surveyStatus === 'idle' && (
-                    <>
-                      <Users className="w-4 h-4" />
-                      Initiate Stakeholder Survey
-                    </>
-                  )}
-                  {surveyStatus === 'sending' && (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Generating Links...
-                    </>
-                  )}
-                  {surveyStatus === 'sent' && (
-                    <>
-                      <Check className="w-4 h-4" />
-                      Survey Active
-                    </>
-                  )}
+                <button onClick={handleInitiateSurvey} disabled={surveyStatus !== 'idle'} className="px-6 py-2.5 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 font-medium shadow-sm transition-all flex items-center gap-2">
+                  <Users className="w-4 h-4" /> Initiate Stakeholder Survey
                 </button>
-             ) : showLockConfirm ? (
-               <div className="flex items-center gap-3 animate-in fade-in slide-in-from-right-4">
-                  <span className="text-sm font-semibold text-slate-700">Are you sure?</span>
-                  <button 
-                    onClick={() => setShowLockConfirm(false)}
-                    className="px-4 py-2 bg-slate-100 text-slate-600 rounded-lg hover:bg-slate-200 font-medium text-sm"
-                  >
-                    Cancel
-                  </button>
-                  <button 
-                    onClick={() => { 
-                      handleFinalize(timelineEnd ? timelineEnd.split('-')[0] : new Date().getFullYear().toString()); 
-                      setShowLockConfirm(false); 
-                    }}
-                    className="px-4 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium text-sm flex items-center gap-2"
-                  >
-                    <Check className="w-3 h-3" />
-                    Yes, Lock & Finalize
-                  </button>
-               </div>
              ) : (
-               <button 
-                onClick={() => setShowLockConfirm(true)}
-                className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm transition-colors flex items-center gap-2"
-               >
-                 <Lock className="w-4 h-4" />
-                 Finalize & Lock
+               <button onClick={() => handleFinalize(timelineEnd ? timelineEnd.split('-')[0] : '2025')} className="px-6 py-2.5 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 font-medium shadow-sm flex items-center gap-2">
+                 <Lock className="w-4 h-4" /> Finalize & Lock
                </button>
              )}
           </div>
